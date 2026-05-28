@@ -1,0 +1,219 @@
+import { Router } from "express";
+import { db } from "@workspace/db";
+import { roastsTable } from "@workspace/db";
+import { desc, count, avg, sql } from "drizzle-orm";
+import OpenAI from "openai";
+import { z } from "zod";
+
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const router = Router();
+
+const RoastInputSchema = z.object({
+  username: z.string().min(1),
+  intensity: z.enum(["mild", "medium", "savage"]).default("medium"),
+});
+
+async function fetchGithubProfile(username: string) {
+  const headers: Record<string, string> = {
+    Accept: "application/vnd.github.v3+json",
+    "User-Agent": "roast-my-github",
+  };
+
+  const userRes = await fetch(`https://api.github.com/users/${username}`, { headers });
+  if (userRes.status === 404) return null;
+  if (!userRes.ok) throw new Error(`GitHub API error: ${userRes.status}`);
+
+  const user = await userRes.json() as {
+    login: string;
+    name: string | null;
+    bio: string | null;
+    public_repos: number;
+    followers: number;
+    following: number;
+    created_at: string;
+    avatar_url: string;
+  };
+
+  const reposRes = await fetch(
+    `https://api.github.com/users/${username}/repos?per_page=100&sort=stars`,
+    { headers }
+  );
+
+  let topLanguages: string[] = [];
+  let mostStarredRepo: string | null = null;
+  let totalStars = 0;
+
+  if (reposRes.ok) {
+    const repos = await reposRes.json() as Array<{
+      name: string;
+      language: string | null;
+      stargazers_count: number;
+    }>;
+
+    const langCounts: Record<string, number> = {};
+    for (const repo of repos) {
+      totalStars += repo.stargazers_count;
+      if (repo.language) {
+        langCounts[repo.language] = (langCounts[repo.language] || 0) + 1;
+      }
+    }
+
+    topLanguages = Object.entries(langCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([lang]) => lang);
+
+    if (repos.length > 0 && repos[0].stargazers_count > 0) {
+      mostStarredRepo = repos[0].name;
+    }
+  }
+
+  return {
+    login: user.login,
+    name: user.name,
+    bio: user.bio,
+    publicRepos: user.public_repos,
+    followers: user.followers,
+    following: user.following,
+    createdAt: user.created_at,
+    avatarUrl: user.avatar_url,
+    topLanguages,
+    mostStarredRepo,
+    totalStars,
+  };
+}
+
+function buildRoastPrompt(
+  profile: NonNullable<Awaited<ReturnType<typeof fetchGithubProfile>>>,
+  intensity: string
+): string {
+  const accountAge = Math.floor(
+    (Date.now() - new Date(profile.createdAt).getTime()) / (1000 * 60 * 60 * 24 * 365)
+  );
+
+  const intensityInstructions: Record<string, string> = {
+    mild: "Be playfully teasing — like a friend making fun of your code. Light and good-natured.",
+    medium: "Be sharp and witty — like a senior dev doing a code review who has seen too much. Pointed but still funny.",
+    savage: "Go absolutely savage — no mercy. Tear apart every aspect of their GitHub like a brutally honest tech interviewer who has given up on humanity. Still keep it funny, not mean-spirited.",
+  };
+
+  return `You are a world-class roast comedian specializing in developer culture. Roast this GitHub user's profile with surgical precision and dark humor.
+
+GitHub Profile Data:
+- Username: ${profile.login}
+- Name: ${profile.name || "No name set (mysterious or embarrassed?)"}
+- Bio: ${profile.bio || "No bio (too cool to explain themselves or too lazy?)"}
+- Public repos: ${profile.publicRepos}
+- Followers: ${profile.followers}
+- Following: ${profile.following}
+- Account age: ${accountAge} years
+- Top languages: ${profile.topLanguages.length > 0 ? profile.topLanguages.join(", ") : "None detected (empty repos?)"}
+- Most starred repo: ${profile.mostStarredRepo || "None with stars (0/10 popularity)"}
+- Total stars: ${profile.totalStars}
+
+Intensity level: ${intensityInstructions[intensity] || intensityInstructions.medium}
+
+Write a single cohesive roast paragraph (3-5 sentences). Make specific, clever observations based on their actual stats. Reference real numbers. Be creative, funny, and devastating in equal measure. Do NOT use emojis. Do NOT use bullet points. Just a single sharp, funny roast paragraph.`;
+}
+
+// POST /api/roast
+router.post("/roast", async (req, res) => {
+  const parsed = RoastInputSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid request body" });
+    return;
+  }
+
+  const { username, intensity } = parsed.data;
+
+  let profile;
+  try {
+    profile = await fetchGithubProfile(username);
+  } catch {
+    res.status(500).json({ error: "Failed to fetch GitHub profile" });
+    return;
+  }
+
+  if (!profile) {
+    res.status(404).json({ error: `GitHub user "${username}" not found` });
+    return;
+  }
+
+  const prompt = buildRoastPrompt(profile, intensity);
+
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    max_tokens: 500,
+    messages: [{ role: "user", content: prompt }],
+  });
+
+  const roast = completion.choices[0]?.message?.content?.trim() ?? "Your code is so bad, even AI refuses to roast it.";
+
+  await db.insert(roastsTable).values({
+    username: profile.login,
+    avatarUrl: profile.avatarUrl,
+    roast,
+    intensity,
+    publicRepos: profile.publicRepos,
+    followers: profile.followers,
+    topLanguage: profile.topLanguages[0] ?? null,
+    totalStars: profile.totalStars,
+  });
+
+  res.json({ roast, username: profile.login, githubProfile: profile });
+});
+
+// GET /api/roast/history
+router.get("/roast/history", async (_req, res) => {
+  const records = await db
+    .select()
+    .from(roastsTable)
+    .orderBy(desc(roastsTable.createdAt))
+    .limit(20);
+
+  res.json(
+    records.map((r) => ({
+      id: r.id,
+      username: r.username,
+      avatarUrl: r.avatarUrl,
+      roast: r.roast,
+      intensity: r.intensity,
+      createdAt: r.createdAt.toISOString(),
+    }))
+  );
+});
+
+// GET /api/roast/stats
+router.get("/roast/stats", async (_req, res) => {
+  const [totalResult] = await db
+    .select({ total: count() })
+    .from(roastsTable);
+
+  const [avgReposResult] = await db
+    .select({ avg: avg(roastsTable.publicRepos) })
+    .from(roastsTable);
+
+  const mostRoastedResult = await db
+    .select({ username: roastsTable.username, cnt: count() })
+    .from(roastsTable)
+    .groupBy(roastsTable.username)
+    .orderBy(desc(count()))
+    .limit(1);
+
+  const mostCommonLangResult = await db
+    .select({ lang: roastsTable.topLanguage, cnt: count() })
+    .from(roastsTable)
+    .where(sql`${roastsTable.topLanguage} IS NOT NULL`)
+    .groupBy(roastsTable.topLanguage)
+    .orderBy(desc(count()))
+    .limit(1);
+
+  res.json({
+    totalRoasts: totalResult?.total ?? 0,
+    mostRoastedUser: mostRoastedResult[0]?.username ?? null,
+    mostCommonLanguage: mostCommonLangResult[0]?.lang ?? null,
+    averageRepos: parseFloat(avgReposResult?.avg ?? "0") || 0,
+  });
+});
+
+export default router;
