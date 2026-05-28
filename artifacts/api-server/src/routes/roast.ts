@@ -2,10 +2,10 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { roastsTable } from "@workspace/db";
 import { desc, count, avg, sql } from "drizzle-orm";
-import OpenAI from "openai";
+import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY ?? "" });
 const router = Router();
 
 const RoastInputSchema = z.object({
@@ -124,7 +124,10 @@ router.post("/roast", async (req, res) => {
     return;
   }
 
-  const { username, intensity } = parsed.data;
+  let { username, intensity } = parsed.data;
+
+  // Strip full URL prefix if user pastes e.g. "github.com/torvalds" or "https://github.com/torvalds"
+  username = username.replace(/^https?:\/\//i, "").replace(/^github\.com\//i, "").trim();
 
   let profile;
   try {
@@ -141,13 +144,18 @@ router.post("/roast", async (req, res) => {
 
   const prompt = buildRoastPrompt(profile, intensity);
 
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    max_tokens: 500,
-    messages: [{ role: "user", content: prompt }],
-  });
-
-  const roast = completion.choices[0]?.message?.content?.trim() ?? "Your code is so bad, even AI refuses to roast it.";
+  let roast: string;
+  try {
+    const result = await genai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      config: { maxOutputTokens: 8192 },
+    });
+    roast = result.text?.trim() ?? "Your code is so bad, even AI refuses to roast it.";
+  } catch {
+    res.status(500).json({ error: "Failed to generate roast. Check your Gemini API key." });
+    return;
+  }
 
   await db.insert(roastsTable).values({
     username: profile.login,
