@@ -1,4 +1,3 @@
-import React from "react";
 import { useGetRoastStats, getGetRoastStatsQueryKey } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Activity, Code2, Users, FileCode2 } from "lucide-react";
@@ -31,7 +30,7 @@ export function RoastStatsBoard() {
             Metrics offline
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className="grid grid-cols-2 md:grid-cols-1 gap-4 md:gap-6">
             <StatItem 
               icon={<Users className="w-4 h-4 text-primary" />}
               label="Total Roasts" 
@@ -39,17 +38,17 @@ export function RoastStatsBoard() {
             />
             <StatItem 
               icon={<Code2 className="w-4 h-4 text-primary" />}
-              label="Most Common Lang" 
+              label="Top Language" 
               value={stats.mostCommonLanguage || "Unknown"} 
             />
             <StatItem 
               icon={<FileCode2 className="w-4 h-4 text-primary" />}
-              label="Avg Repos per Victim" 
+              label="Avg Repos" 
               value={Math.round(stats.averageRepos).toString()} 
             />
             <StatItem 
               icon={<Activity className="w-4 h-4 text-destructive" />}
-              label="Frequent Target" 
+              label="Top Target" 
               value={stats.mostRoastedUser ? `@${stats.mostRoastedUser}` : "None"} 
             />
           </div>

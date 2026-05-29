@@ -1,4 +1,3 @@
-import React from "react";
 import { useGetRoastHistory, getGetRoastHistoryQueryKey } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";

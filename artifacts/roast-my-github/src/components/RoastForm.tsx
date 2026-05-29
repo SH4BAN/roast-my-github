@@ -41,11 +41,13 @@ export function RoastForm({ onSubmit, isPending }: RoastFormProps) {
                   <Label className="text-primary font-mono uppercase tracking-wider text-sm">Target Username</Label>
                 </div>
                 <FormControl>
-                  <div className="relative group">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-mono">github.com/</span>
+                  <div className="flex items-center h-14 bg-background border border-primary/30 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/50 rounded-lg transition-all overflow-hidden">
+                    <span className="pl-4 text-muted-foreground font-mono text-base sm:text-lg whitespace-nowrap select-none shrink-0">
+                      github.com/
+                    </span>
                     <Input 
-                      placeholder="torvalds" 
-                      className="pl-[6.5rem] font-mono text-lg h-14 bg-background border-primary/30 focus-visible:border-primary focus-visible:ring-primary/50 transition-all rounded-lg"
+                      placeholder="torvalds"
+                      className="border-0 shadow-none focus-visible:ring-0 font-mono text-base sm:text-lg h-full bg-transparent flex-1 min-w-0 pl-1 pr-4"
                       data-testid="input-username"
                       {...field} 
                     />
@@ -72,30 +74,30 @@ export function RoastForm({ onSubmit, isPending }: RoastFormProps) {
                       <RadioGroupItem value="mild" id="mild" className="peer sr-only" />
                       <Label
                         htmlFor="mild"
-                        className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-background p-4 hover:bg-secondary hover:text-secondary-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 [&:has([data-state=checked])]:border-primary cursor-pointer transition-all"
+                        className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-background p-2 sm:p-4 hover:bg-secondary hover:text-secondary-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 [&:has([data-state=checked])]:border-primary cursor-pointer transition-all"
                       >
-                        <Flame className="mb-2 h-6 w-6 text-yellow-500" />
-                        <span className="font-mono text-xs uppercase">Mild</span>
+                        <Flame className="mb-1 sm:mb-2 h-5 w-5 sm:h-6 sm:w-6 text-yellow-500" />
+                        <span className="font-mono text-[10px] sm:text-xs uppercase">Mild</span>
                       </Label>
                     </div>
                     <div>
                       <RadioGroupItem value="medium" id="medium" className="peer sr-only" />
                       <Label
                         htmlFor="medium"
-                        className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-background p-4 hover:bg-secondary hover:text-secondary-foreground peer-data-[state=checked]:border-orange-500 peer-data-[state=checked]:bg-orange-500/10 [&:has([data-state=checked])]:border-orange-500 cursor-pointer transition-all"
+                        className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-background p-2 sm:p-4 hover:bg-secondary hover:text-secondary-foreground peer-data-[state=checked]:border-orange-500 peer-data-[state=checked]:bg-orange-500/10 [&:has([data-state=checked])]:border-orange-500 cursor-pointer transition-all"
                       >
-                        <ShieldAlert className="mb-2 h-6 w-6 text-orange-500" />
-                        <span className="font-mono text-xs uppercase">Medium</span>
+                        <ShieldAlert className="mb-1 sm:mb-2 h-5 w-5 sm:h-6 sm:w-6 text-orange-500" />
+                        <span className="font-mono text-[10px] sm:text-xs uppercase">Medium</span>
                       </Label>
                     </div>
                     <div>
                       <RadioGroupItem value="savage" id="savage" className="peer sr-only" />
                       <Label
                         htmlFor="savage"
-                        className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-background p-4 hover:bg-destructive hover:text-destructive-foreground peer-data-[state=checked]:border-destructive peer-data-[state=checked]:bg-destructive/10 [&:has([data-state=checked])]:border-destructive cursor-pointer transition-all"
+                        className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-background p-2 sm:p-4 hover:bg-destructive hover:text-destructive-foreground peer-data-[state=checked]:border-destructive peer-data-[state=checked]:bg-destructive/10 [&:has([data-state=checked])]:border-destructive cursor-pointer transition-all"
                       >
-                        <Skull className="mb-2 h-6 w-6 text-destructive" />
-                        <span className="font-mono text-xs uppercase text-destructive">Savage</span>
+                        <Skull className="mb-1 sm:mb-2 h-5 w-5 sm:h-6 sm:w-6 text-destructive" />
+                        <span className="font-mono text-[10px] sm:text-xs uppercase text-destructive">Savage</span>
                       </Label>
                     </div>
                   </RadioGroup>

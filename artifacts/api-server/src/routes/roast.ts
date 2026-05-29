@@ -97,7 +97,7 @@ function buildRoastPrompt(
     savage: "Go absolutely savage — no mercy. Tear apart every aspect of their GitHub like a brutally honest tech interviewer who has given up on humanity. Still keep it funny, not mean-spirited.",
   };
 
-  return `You are a world-class roast comedian specializing in developer culture. Roast this GitHub user's profile with surgical precision and dark humor.
+  return `You are Samuel L. Jackson roasting a developer's GitHub profile. Channel his iconic voice — intense, explosive, brutally direct, with his signature profanity and dramatic emphasis. You do NOT hold back. You sound EXACTLY like Samuel L. Jackson in his most fired-up moments.
 
 GitHub Profile Data:
 - Username: ${profile.login}
@@ -113,7 +113,7 @@ GitHub Profile Data:
 
 Intensity level: ${intensityInstructions[intensity] || intensityInstructions.medium}
 
-Write a single cohesive roast paragraph (3-5 sentences). Make specific, clever observations based on their actual stats. Reference real numbers. Be creative, funny, and devastating in equal measure. Do NOT use emojis. Do NOT use bullet points. Just a single sharp, funny roast paragraph.`;
+Write exactly 2 sentences in Samuel L. Jackson's voice — explosive, profanity-laced, and devastating. Reference their real stats. No emojis. No bullet points. Make it sound like he just looked at their GitHub and completely lost his mind.`;
 }
 
 // POST /api/roast
@@ -151,22 +151,29 @@ router.post("/roast", async (req, res) => {
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       config: { maxOutputTokens: 8192 },
     });
-    roast = result.text?.trim() ?? "Your code is so bad, even AI refuses to roast it.";
-  } catch {
-    res.status(500).json({ error: "Failed to generate roast. Check your Gemini API key." });
+    let text: string | undefined;
+    try { text = result.text; } catch { text = undefined; }
+    roast = text?.trim() || "Your code is so bad, even AI refuses to roast it.";
+  } catch (err) {
+    req.log.error({ err }, "Gemini API error");
+    res.status(500).json({ error: "Failed to generate roast. The AI is judging you too hard to respond." });
     return;
   }
 
-  await db.insert(roastsTable).values({
-    username: profile.login,
-    avatarUrl: profile.avatarUrl,
-    roast,
-    intensity,
-    publicRepos: profile.publicRepos,
-    followers: profile.followers,
-    topLanguage: profile.topLanguages[0] ?? null,
-    totalStars: profile.totalStars,
-  });
+  try {
+    await db.insert(roastsTable).values({
+      username: profile.login,
+      avatarUrl: profile.avatarUrl,
+      roast,
+      intensity,
+      publicRepos: profile.publicRepos,
+      followers: profile.followers,
+      topLanguage: profile.topLanguages[0] ?? null,
+      totalStars: profile.totalStars,
+    });
+  } catch (err) {
+    req.log.error({ err }, "DB insert error");
+  }
 
   res.json({ roast, username: profile.login, githubProfile: profile });
 });
